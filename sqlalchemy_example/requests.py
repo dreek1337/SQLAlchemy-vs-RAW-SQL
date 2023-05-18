@@ -20,7 +20,9 @@ with Session(engine) as conn:
     questions_text = [
         'Сколько стоит руль?',
         'Сколько стоит колесо?',
-        'Сколько стоит рама?'
+        'Сколько стоит рама?',
+        'Сколько стоит седушка?',
+        'Сколько стоит педали?'
     ]
 
     new_questions = [
@@ -81,6 +83,26 @@ with Session(engine) as conn:
             choice_text='Рама стоит 28р',
             votes=12,
             question_id=all_questions[2]
+        ),
+        Choices(
+            choice_text='Сидушка стоит 289р',
+            votes=1,
+            question_id=all_questions[3]
+        ),
+        Choices(
+            choice_text='Сидушка стоит 291р',
+            votes=15,
+            question_id=all_questions[3]
+        ),
+        Choices(
+            choice_text='Сидушка стоит 2889р',
+            votes=14329,
+            question_id=all_questions[3]
+        ),
+        Choices(
+            choice_text='Сидушка стоит 28р',
+            votes=12,
+            question_id=all_questions[3]
         )
     )
 
@@ -105,7 +127,7 @@ with Session(engine) as conn:
     """
     query = (
         select(Questions.question_text, func.count(Choices.choice_id))
-        .join(Choices.question)
+        .join(Choices)
         .group_by(Questions.question_id)
     )
 
@@ -119,10 +141,70 @@ with Session(engine) as conn:
     """
     query = (
         select(Questions.question_text, func.sum(Choices.votes))
-        .join(Choices.question)
+        .join(Choices)
         .group_by(Questions.question_text)
     )
 
     result = conn.execute(query).fetchall()
 
     print("Кол-во голосов на каждый вопрос составляет:", result)
+
+with Session(engine) as conn:
+    """
+    Вопросы, набравшие максимальное количество голосов
+    """
+    subquery = (
+        select(Questions.question_text, func.sum(Choices.votes).label('sum_votes'))
+        .join(Choices)
+        .group_by(Questions.question_text)
+        .cte()
+    )
+
+    get_max_votes = select(func.max(subquery.c.sum_votes).label('max_votes')).scalar_subquery()
+
+    query = (
+        select(Questions.question_text, func.sum(Choices.votes).label('sum'))
+        .join(Choices)
+        .group_by(Questions.question_text)
+        .having(func.sum(Choices.votes) == get_max_votes)
+    )
+
+    res = conn.execute(query).fetchall()
+
+    print('Вопросы с максимальным кол-вом голосов', res)
+
+with Session(engine) as conn:
+    """
+    Вопросы без выбора
+    """
+    query = (
+        select(Questions.question_text, Choices.choice_text)
+        .join(Questions.choices, isouter=True)
+        .where(Choices.choice_text == None)
+    )
+
+    result = conn.execute(query).fetchall()
+
+    print(result)
+
+with Session(engine) as conn:
+    """
+    Общее количество поданных голосов
+    """
+    query = (
+        select(func.sum(Choices.votes))
+    )
+
+    result = conn.execute(query).scalar()
+
+    print('Общее количество поданных голосов', result)
+
+with Session(engine) as conn:
+    """
+    Среднее количество голосов за каждый выбор
+    """
+    query = select(func.avg(Choices.votes))
+
+    result = conn.scalar(query)
+
+    print(result)
