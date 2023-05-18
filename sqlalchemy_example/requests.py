@@ -185,7 +185,7 @@ with Session(engine) as conn:
 
     result = conn.execute(query).fetchall()
 
-    print(result)
+    print('Вопросы без выбора', result)
 
 with Session(engine) as conn:
     """
@@ -205,6 +205,20 @@ with Session(engine) as conn:
     """
     query = select(func.avg(Choices.votes))
 
-    result = conn.scalar(query)
+    result = conn.execute(query).scalar()
 
     print(result)
+
+with Session(engine) as conn:
+    """
+    Среднее количество голосов за вопрос
+    """
+    query = (
+        select(Questions.question_text, func.avg(Choices.votes))
+        .join(Questions.choices)
+        .group_by(Questions.question_text)
+    )
+
+    result = conn.execute(query).fetchall()
+
+    print('Среднее количество голосов за вопрос:', result)
